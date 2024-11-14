@@ -75,11 +75,11 @@ function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
 	return typeof value === 'function';
 }
 
-function goodTry<T>(tryFn: () => T): T | undefined {
+function goodTry<T>(tryFn: () => T, defaultValue: T): T {
 	try {
 		return tryFn();
 	} catch {
-		return undefined;
+		return defaultValue;
 	}
 }
 
@@ -124,27 +124,58 @@ const internalInjectLocalStorage = <R>(
 		const localStorage = inject(NGXTENSION_LOCAL_STORAGE);
 		const destroyRef = inject(DestroyRef);
 
-		const initialStoredValue = goodTry(() => localStorage.getItem(key));
-		const initialValue = initialStoredValue
-			? (goodTry(() => parse(initialStoredValue) as R) ?? defaultValue)
-			: defaultValue;
-		const internalSignal = signal(initialValue);
+		const initialStoredValue = goodTry(() => localStorage.getItem(key), null);
+		const internalSignal = signal<R>(
+			initialStoredValue
+				? goodTry(() => parse(initialStoredValue) as R, defaultValue)
+				: defaultValue,
+			{
+				equal: (a, b) =>
+					a === b ||
+					(a !== undefined && stringify(a)) ===
+						(b !== undefined && stringify(b)),
+			},
+		);
 
-		effect(() => {
-			const value = internalSignal();
-			if (value === undefined) {
-				goodTry(() => localStorage.removeItem(key));
-			} else {
-				goodTry(() => localStorage.setItem(key, stringify(value)));
-			}
-		});
+		effect(
+			() => {
+				const value = internalSignal();
+				const newValue = goodTry(
+					() => (value === undefined ? null : stringify(value)),
+					null,
+				);
+
+				try {
+					if (newValue === null) {
+						localStorage.removeItem(key);
+					} else {
+						localStorage.setItem(key, newValue);
+					}
+
+					// We notify other consumers in this tab about changing the value in the store for synchronization
+					window.dispatchEvent(
+						new StorageEvent(`storage`, {
+							key,
+							newValue,
+							storageArea: localStorage,
+						}),
+					);
+				} catch {
+					// ignore errors
+				}
+			},
+			{
+				allowSignalWrites: true,
+			},
+		);
 
 		if (storageSync) {
 			const onStorage = (event: StorageEvent) => {
 				if (event.storageArea === localStorage && event.key === key) {
-					const newValue = event.newValue
-						? (goodTry(() => parse(event.newValue!) as R) ?? defaultValue)
-						: defaultValue;
+					const newValue =
+						event.newValue !== null
+							? (parse(event.newValue) as R)
+							: defaultValue;
 					internalSignal.set(newValue);
 				}
 			};

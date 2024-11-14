@@ -1,4 +1,4 @@
-import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { injectLocalStorage } from './inject-local-storage';
 
 describe('injectLocalStorage', () => {
@@ -16,24 +16,24 @@ describe('injectLocalStorage', () => {
 	});
 
 	describe('with primitive', () => {
-		it('should set a value in localStorage', fakeAsync(() => {
+		it('should set a value in localStorage', () => {
 			TestBed.runInInjectionContext(() => {
 				const localStorageSignal = injectLocalStorage<string>(key);
 				const testValue = 'value';
 				localStorageSignal.set(testValue);
-				tick(); // Wait for effect to run
+				TestBed.flushEffects();
 				expect(setItemSpy).toHaveBeenCalledWith(key, JSON.stringify(testValue));
 			});
-		}));
+		});
 
-		it('should get a undefined value from localStorage', fakeAsync(() => {
+		it('should get a undefined value from localStorage', () => {
 			TestBed.runInInjectionContext(() => {
 				getItemSpy.mockReturnValue(undefined); // Mock return value for getItem
 				const localStorageSignal = injectLocalStorage<string>(key);
-				tick(); // Wait for effect to run
+				TestBed.flushEffects();
 				expect(localStorageSignal()).toBeUndefined();
 			});
-		}));
+		});
 
 		it('should return defaultValue of type string', () => {
 			TestBed.runInInjectionContext(() => {
@@ -106,6 +106,8 @@ describe('injectLocalStorage', () => {
 
 				const localStorageSignal = injectLocalStorage<string>(key);
 
+				TestBed.flushEffects();
+
 				// Simulate an external change
 				window.dispatchEvent(
 					new StorageEvent('storage', {
@@ -115,21 +117,42 @@ describe('injectLocalStorage', () => {
 					}),
 				);
 
+				TestBed.flushEffects();
+
 				expect(localStorageSignal()).toEqual(newValue);
+			});
+		});
+
+		it('should dispatch localStorage changes', () => {
+			TestBed.runInInjectionContext(() => {
+				const oldValue = 'old value';
+				const newValue = 'new value';
+				getItemSpy.mockReturnValue(JSON.stringify(oldValue)); // Mock return value for getItem after change
+
+				const localStorageSignal1 = injectLocalStorage<string>(key);
+				const localStorageSignal2 = injectLocalStorage<string>(key);
+
+				TestBed.flushEffects();
+
+				localStorageSignal1.set(newValue);
+
+				TestBed.flushEffects();
+
+				expect(localStorageSignal2()).toEqual(newValue);
 			});
 		});
 	});
 
 	describe('with object', () => {
-		it('should set a value in localStorage', fakeAsync(() => {
+		it('should set a value in localStorage', () => {
 			TestBed.runInInjectionContext(() => {
 				const testValue = { house: { rooms: 3, bathrooms: 2 } };
 				const localStorageSignal = injectLocalStorage<typeof testValue>(key);
 				localStorageSignal.set(testValue);
-				tick(); // Wait for effect to run
+				TestBed.flushEffects();
 				expect(setItemSpy).toHaveBeenCalledWith(key, JSON.stringify(testValue));
 			});
-		}));
+		});
 
 		it('should get the current value from localStorage', () => {
 			TestBed.runInInjectionContext(() => {
@@ -188,6 +211,8 @@ describe('injectLocalStorage', () => {
 
 				const localStorageSignal = injectLocalStorage<typeof newValue>(key);
 
+				TestBed.flushEffects();
+
 				// Simulate an external change
 				window.dispatchEvent(
 					new StorageEvent('storage', {
@@ -196,6 +221,8 @@ describe('injectLocalStorage', () => {
 						newValue: JSON.stringify(newValue),
 					}),
 				);
+
+				TestBed.flushEffects();
 
 				expect(localStorageSignal()).toEqual(newValue);
 			});
@@ -208,6 +235,8 @@ describe('injectLocalStorage', () => {
 
 				const localStorageSignal = injectLocalStorage<typeof val1>(key);
 
+				TestBed.flushEffects();
+
 				expect(localStorageSignal()).toEqual(val1);
 
 				const val2 = { house: { rooms: 4, bathrooms: 2 } };
@@ -218,6 +247,7 @@ describe('injectLocalStorage', () => {
 						newValue: JSON.stringify(val2),
 					}),
 				);
+				TestBed.flushEffects();
 				expect(localStorageSignal()).toEqual(val2);
 
 				const val3 = { house: { rooms: 5, bathrooms: 2 } };
@@ -228,6 +258,25 @@ describe('injectLocalStorage', () => {
 					key,
 					JSON.stringify(val3),
 				);
+			});
+		});
+
+		it('should dispatch localStorage changes', () => {
+			TestBed.runInInjectionContext(() => {
+				const oldValue = { house: { rooms: 3, bathrooms: 2 } };
+				const newValue = { house: { rooms: 4, bathrooms: 2 } };
+				getItemSpy.mockReturnValue(JSON.stringify(oldValue)); // Mock return value for getItem after change
+
+				const localStorageSignal1 = injectLocalStorage<typeof newValue>(key);
+				const localStorageSignal2 = injectLocalStorage<typeof newValue>(key);
+
+				TestBed.flushEffects();
+
+				localStorageSignal1.set(newValue);
+
+				TestBed.flushEffects();
+
+				expect(localStorageSignal2()).toEqual(newValue);
 			});
 		});
 	});
