@@ -33,6 +33,14 @@ Check [the documentation](https://ngxtension.netlify.app/).
 
 <!-- UTILITIES:END -->
 
+## Supported Versions
+
+| `Angular` version | `ngxtension` version |
+|-------------------|----------------------|
+| 16.x.x            | 0.x.x                |
+| 16.x.x - 18.x.x   | 1.x.x - 5.x.x        |
+| 19.x.x            | 6.x.x                |
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
